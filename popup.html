@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Quiet Composer</title>
+<style>
+body { font: 14px system-ui; width: 330px; margin: 16px; color: #202124; }
+h1 { font-size: 19px; margin: 0 0 10px; }
+p { line-height: 1.45; }
+textarea { box-sizing: border-box; width: 100%; min-height: 72px; margin: 6px 0; }
+button { padding: 8px 10px; margin: 4px 4px 4px 0; cursor: pointer; }
+#status { min-height: 40px; overflow-wrap: anywhere; }
+</style>
+<h1>Quiet Composer</h1>
+<p>The identified ChatGPT prediction widget is hidden automatically. No picking or custom selector is needed for that widget.</p>
+<button id="pick">Pick suggestion on page</button>
+<p><label for="selector">Optional additional CSS selector:</label>
+<textarea id="selector" spellcheck="false" placeholder="CSS selector"></textarea></p>
+<label><input type="checkbox" id="enabled" checked> Hide suggestions</label>
+<div><button id="save">Save</button><button id="clear">Clear rule</button></div>
+<p id="status" role="status"></p>
+<p>Hides the visual overlay. Prediction generation and Tab-to-accept may remain active.</p>
+<script src="popup.js"></script>
+</html>

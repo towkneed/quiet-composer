@@ -1,0 +1,7 @@
+/* Observed in the supplied live DOM. Applied before a widget is displayed. */
+html:not([data-quiet-composer-enabled="false"]) [data-composer-input] .ProseMirror [data-cumberbatch][inert][aria-hidden="true"][contenteditable="false"],
+[data-quiet-composer-hidden] {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
