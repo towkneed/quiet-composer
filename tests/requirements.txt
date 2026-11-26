@@ -1,0 +1,2 @@
+# Browser-harness development dependency; no extension runtime packages.
+playwright==1.62.0

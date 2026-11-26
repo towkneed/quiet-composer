@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Quiet Composer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Hide ChatGPT composer prediction widgets, with an optional custom selector.",
   "permissions": ["storage", "activeTab"],
   "content_scripts": [{
     "matches": ["https://chatgpt.com/*"],
     "css": ["content.css"],
-    "js": ["content.js"],
+    "js": ["protocol.js", "content.js"],
     "run_at": "document_start"
   }],
   "action": {"default_popup": "popup.html", "default_title": "Quiet Composer"}

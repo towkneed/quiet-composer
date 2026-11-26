@@ -1,4 +1,4 @@
-# Quiet Composer 0.2.0
+# Quiet Composer 0.2.1
 
 A small Chrome/Edge Manifest V3 extension that hides ChatGPT composer predictions. It targets the actual `data-cumberbatch` widget supplied from the live composer. No picking or custom selector is needed for this widget.
 
@@ -29,16 +29,26 @@ Open the popup and uncheck **Hide suggestions**, then Save, to restore them. **C
 - Hides only eligible elements within detected composer containers. Your messages are not deleted or sent by this extension.
 - Uses visibility/opacity rather than deleting nodes, and reapplies its rule when the page rerenders.
 - This hides the visual overlay. It does **not** disable prediction generation, change account settings, or reliably prevent Tab-to-accept. Avoid Tab when you do not intend to accept a prediction.
-- The built-in selector was checked against a fixture matching the observed markup. JavaScript syntax, manifest references and the original ZIP integrity passed. Toney reported that suggestion hiding worked in his live ChatGPT session on November 25, 2026. This is user-reported live validation, not an automated browser-test result. The included synthetic browser harness has not been run successfully in the development environment because its browser executable was unavailable.
+- Toney reported that version 0.2.0 hid suggestions in his live ChatGPT session on November 25, 2026. Version 0.2.1 adds settings/message validation and accurate save reporting. Eight automated contract and mocked-integration tests pass; JavaScript syntax and manifest references pass. The synthetic browser harness remains blocked by an unavailable Chromium executable, so version 0.2.1 has no automated browser or new live-session pass. See the [verification record](docs/standards-review-2026-11-26.md).
 - A stable `data-testid`, ID, or semantic class is preferred when available. A positional fallback may stop matching or hide a different non-editable composer element after layout changes; re-pick or clear it if that happens.
 - Ordinary editable text, placeholder attributes and CSS pseudo-elements are not separate targets for this picker. Only the identified widget has an exception inside the editor. An upstream DOM change may require adjusting the rule.
 - The absence of a suggestion after refresh alone does not prove hiding works. Check the next occurrence; hidden widget text should remain present in the DOM, with CSS visibility set to hidden.
 
 Source files are included; no build step is required.
 
-Optional synthetic checks: install Python Playwright and its Chromium browser, then run `python tests/verify.py`. To use an existing browser executable, set `QUIET_COMPOSER_BROWSER` to its path. These checks do not substitute for testing your live ChatGPT composer.
+Development setup and checks are documented in [CONTRIBUTING.md](CONTRIBUTING.md). Run the dependency-free contract tests with `node --test tests/contracts.test.cjs`. The browser harness uses the pinned `tests/requirements.txt`; install its matching Chromium before running `python tests/verify.py`. To use an existing browser executable, set `QUIET_COMPOSER_BROWSER` to its path. Browser fixtures do not substitute for a live ChatGPT test.
 
 Chrome content-script reference: https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
+
+## Engineering standards
+
+This repository adopts Core Software Engineering Standards 0.1.0 and the
+Browser Application Profile 0.1.0 from
+[towkneed/software-engineering-standards](https://github.com/towkneed/software-engineering-standards/tree/79530292a9bc025dbca86cbc9131de51c02d0aa9),
+pinned at `79530292a9bc025dbca86cbc9131de51c02d0aa9`.
+See [the adoption and review record](docs/standards-review-2026-11-26.md) for
+reproducible retrieval, validation evidence and open browser checks. Adoption
+is a requirements declaration, not a claim that unrun checks passed.
 
 ## License
 

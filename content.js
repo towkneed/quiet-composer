@@ -1,13 +1,17 @@
 (() => {
   'use strict';
+  const protocol = globalThis.QuietComposerProtocol;
   const MARK = 'data-quiet-composer-hidden';
   const UI = 'data-quiet-composer-ui';
   const EDITOR = 'textarea, [contenteditable="true"], [contenteditable="plaintext-only"]';
   const PROTECTED = 'html, body, form, input, textarea, button, select, [role="button"], [role="textbox"], [contenteditable]';
-  let settings = { selector: '', enabled: true };
+  let settings = { ...protocol.DEFAULTS };
+  let settingsError = '';
+  let settingsRevision = 0;
   let frame = 0;
   let cancelPick = null;
   const hidden = new Set();
+  /** Find editor-owned containers without including the transcript or picker. */
   function scopes() {
     const result = new Set();
     for (const editor of document.querySelectorAll(EDITOR)) {
@@ -17,6 +21,7 @@
     }
     return [...result];
   }
+  /** Permit only non-editable overlay targets; the observed inert widget is special. */
   function safe(element, scope) {
     // Permit the observed inert prediction widget and its descendants,
     // even though ProseMirror embeds it inside the editor.
@@ -33,6 +38,7 @@
       && !element.closest(`[${UI}], [data-message-author-role], button, [role="button"], ${EDITOR}`)
       && !element.querySelector(`${EDITOR}, input, button, select, [role="button"], [role="textbox"]`);
   }
+  /** @param {string} selector @returns {Set<HTMLElement>} Safe composer targets. */
   function matches(selector) {
     const result = new Set();
     // Validate even if no composer is currently mounted.
@@ -48,16 +54,35 @@
     frame = 0;
     if (document.documentElement) {
       document.documentElement.setAttribute('data-quiet-composer-enabled', settings.enabled ? 'true' : 'false');
+      if (settingsError) document.documentElement.setAttribute('data-quiet-composer-error', settingsError);
+      else document.documentElement.removeAttribute('data-quiet-composer-error');
     }
     let next = new Set();
     if (settings.enabled && settings.selector) {
-      try { next = matches(settings.selector); } catch { /* Invalid rules hide nothing. */ }
+      next = matches(settings.selector);
     }
     for (const el of hidden) if (!next.has(el)) el.removeAttribute(MARK);
     for (const el of next) if (!el.hasAttribute(MARK)) el.setAttribute(MARK, '');
     hidden.clear(); for (const el of next) hidden.add(el);
   }
+  // One frame and one observer belong to this content-script document. Browser
+  // document disposal releases them; picker cleanup releases its key listener.
   function schedule() { if (!frame) frame = requestAnimationFrame(refresh); }
+  /** Install validated settings. A storage/syntax failure disables hiding visibly. */
+  function acceptSettings(value) {
+    try {
+      const parsed = protocol.parseSettings(value);
+      if (parsed.selector) document.querySelector(parsed.selector);
+      settings = parsed;
+      settingsError = '';
+    } catch (error) {
+      settings = { selector: '', enabled: false };
+      settingsError = 'invalid-settings';
+      console.warn('Quiet Composer: invalid settings; hiding disabled.', error);
+    }
+    schedule();
+  }
+  /** Derive a reusable selector, preferring stable widget attributes over position. */
   function selectorFor(element, scope) {
     const unique = s => {
       try { const a = scope.querySelectorAll(s); return a.length === 1 && a[0] === element; }
@@ -132,27 +157,59 @@
       selected = targetAt(e.clientX, e.clientY);
       if (!selected) return;
       const selector = selectorFor(selected.el, selected.scope);
-      try { await chrome.storage.local.set({ selector, enabled: true }); cleanup(); }
+      try {
+        const next = protocol.parseSettings({ selector, enabled: true });
+        await chrome.storage.local.set(next);
+        cleanup();
+      }
       catch { label.textContent = 'Could not save the rule. Press Esc, reload the page and try again.'; }
     });
     document.addEventListener('keydown', key, true); cancelPick = cleanup;
     return { ok: true };
   }
-  chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-    if (message.type === 'quiet-composer-pick') respond(startPick());
-    else if (message.type === 'quiet-composer-check') {
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    if (sender?.id !== chrome.runtime.id) {
+      respond({ ok: false, error: 'Unrecognized extension sender.' });
+      return;
+    }
+    let request;
+    try { request = protocol.parseRequest(message); }
+    catch (error) { respond({ ok: false, error: error.message }); return; }
+    if (request.type === protocol.PICK) respond(startPick());
+    else if (request.type === protocol.CHECK) {
       try {
-        if (typeof message.selector !== 'string' || message.selector.length > 2048) throw new Error();
-        respond({ ok: true, count: matches(message.selector).size });
-      } catch { respond({ ok: false, error: 'Invalid CSS selector (or longer than 2,048 characters).' }); }
+        respond({ ok: true, count: matches(request.selector).size });
+      } catch (error) {
+        if (error.name !== 'SyntaxError') throw error;
+        respond({ ok: false, error: 'Invalid CSS selector syntax.' });
+      }
     }
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    for (const k of ['selector', 'enabled']) if (changes[k]) settings[k] = changes[k].newValue;
+    const next = { ...settings };
+    let relevant = false;
+    for (const key of ['selector', 'enabled']) {
+      if (!Object.prototype.hasOwnProperty.call(changes, key)) continue;
+      relevant = true;
+      next[key] = Object.prototype.hasOwnProperty.call(changes[key], 'newValue')
+        ? changes[key].newValue : protocol.DEFAULTS[key];
+    }
+    if (relevant) {
+      settingsRevision += 1;
+      acceptSettings(next);
+    }
+  });
+  chrome.storage.local.get(protocol.DEFAULTS).then(value => {
+    // A delayed initial read cannot overwrite a newer storage-change event.
+    if (settingsRevision === 0) acceptSettings(value);
+  }).catch(error => {
+    if (settingsRevision !== 0) return;
+    settings = { selector: '', enabled: false };
+    settingsError = 'storage-unavailable';
+    console.warn('Quiet Composer: settings could not be read; hiding disabled.', error);
     schedule();
   });
-  chrome.storage.local.get(settings).then(s => { settings = s; schedule(); });
   new MutationObserver(schedule).observe(document, {
     subtree: true, childList: true, attributes: true,
     attributeFilter: ['class', 'id', 'data-testid', 'data-test-id', 'contenteditable', 'role', 'data-cumberbatch', 'inert', 'aria-hidden']

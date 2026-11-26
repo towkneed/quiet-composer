@@ -10,9 +10,9 @@ window.chrome={
   const result={}; for(const [k,v] of Object.entries(changes)){result[k]={oldValue:saved[k],newValue:v};saved[k]=v;}
   storageListeners.forEach(fn=>fn(result,'local'));
  }},onChanged:{addListener:fn=>storageListeners.push(fn)}},
- runtime:{onMessage:{addListener:fn=>messageListeners.push(fn)}}
+ runtime:{id:'quiet-composer-test',onMessage:{addListener:fn=>messageListeners.push(fn)}}
 };
-window.sendExtension=message=>new Promise(resolve=>messageListeners.forEach(fn=>fn(message,{},resolve)));
+window.sendExtension=message=>new Promise(resolve=>messageListeners.forEach(fn=>fn(message,{id:chrome.runtime.id},resolve)));
 '''
 FIXTURE='''<!doctype html><html><body>
 <article data-message-author-role="assistant"><span data-testid="ghost">Transcript text must stay visible</span></article>
@@ -27,6 +27,7 @@ with sync_playwright() as p:
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.set_content(FIXTURE)
  page.add_script_tag(content=MOCK)
+ page.add_script_tag(path=str(ROOT/'protocol.js'))
  page.add_style_tag(path=str(ROOT/'content.css'))
  page.add_script_tag(path=str(ROOT/'content.js'))
  page.wait_for_function('getComputedStyle(document.querySelector("form [data-testid=ghost]")).visibility==="hidden"')
@@ -71,6 +72,7 @@ with sync_playwright() as p:
  page2=browser.new_page()
  page2.set_content((ROOT/'tests/widget-fixture.html').read_text())
  page2.add_script_tag(content=MOCK)
+ page2.add_script_tag(path=str(ROOT/'protocol.js'))
  page2.add_style_tag(path=str(ROOT/'content.css'))
  page2.add_script_tag(path=str(ROOT/'content.js'))
  page2.wait_for_function('document.documentElement.getAttribute("data-quiet-composer-enabled")==="true"')
